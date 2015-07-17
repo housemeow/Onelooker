@@ -37,32 +37,46 @@ namespace Onelooker
             clipboardManager.ClipboardUpdate += OnClipboardManagerUpdate;
         }
 
-        private void OnClipboardManagerUpdate(string text)
+        private async void OnClipboardManagerUpdate(string text)
         {
             this._searchText = text;
             ShowSearchingStatus();
-            Search();
+            _webBrowser.DocumentText = GetHeader();
+            await Task.Run(() =>
+            {
+                _webBrowser.DocumentText = GetSearchingContent();
+            });
             ShowDoneStatus();
         }
 
-        private void Search()
+        private string GetSearchingContent()
         {
             HttpRequester requester = new HttpRequester();
             string url = String.Format(ONELOOK_URL, this._searchText);
-            string result = requester.Get(url);
+            string result = String.Empty;
+            try
+            {
+                result = requester.Get(url);
+            }
+            catch (Exception) { }
             MatchCollection matches = Regex.Matches(result, WORD_NET_WORD);
-            string words = String.Format(FORMATTED_HEADER, this._searchText);
+            string words = GetHeader();
             foreach (Match match in matches)
             {
                 words += String.Format(FORMATTED_VOCABULARY_CONTENT, match.Value);
             }
-            InternalResourceReader reader = new InternalResourceReader(Assembly.GetExecutingAssembly());
-            string css = String.Format(FORMATTED_CSS_CONTENT, reader.ReadAllText("Onelooker.style.css"));
-            words += css;
+
             if (matches.Count > 0)
-                _webBrowser.DocumentText = words;
+                return words;
             else
-                _webBrowser.DocumentText = words + NOT_FOUND;
+                return words + NOT_FOUND;
+        }
+
+        private string GetHeader()
+        {
+            InternalResourceReader reader = new InternalResourceReader(Assembly.GetExecutingAssembly());
+            string header = String.Format(FORMATTED_CSS_CONTENT, reader.ReadAllText("Onelooker.style.css"));
+            return header + String.Format(FORMATTED_HEADER, this._searchText);
         }
 
         private void ShowSearchingStatus()
